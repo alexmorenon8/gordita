@@ -161,7 +161,7 @@ loginButton.addEventListener("click", async () => {
   if (!email) return;
   const { error } = await supabase.auth.signInWithOtp({
     email,
-    options: { emailRedirectTo: window.location.origin },
+    options: { emailRedirectTo: `${window.location.origin}${window.location.pathname}` },
   });
   status.textContent = error ? "No se pudo enviar el enlace. Revisa la configuración de Supabase." : "Revisa tu correo y abre el enlace para poder subir fotos.";
 });
