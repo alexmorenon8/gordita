@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#7f263d" />
+    <title>Un mes contigo ✦</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;1,600;1,700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main>
+      <section class="hero" aria-labelledby="page-title">
+        <div class="grain" aria-hidden="true"></div>
+        <span class="floating-heart heart-one" aria-hidden="true">♥</span>
+        <span class="floating-heart heart-two" aria-hidden="true">♥</span>
+        <span class="floating-heart heart-three" aria-hidden="true">♥</span>
+        <p class="eyebrow">Para mi gordita <span class="grey-heart" aria-label="corazón gris">🩶</span></p>
+        <p class="date">El mes más feliz de mi vida</p>
+        <!-- PERSONALIZA: cambia este título y el texto de abajo por los vuestros. -->
+        <h1 id="page-title">Un mes contigo,<br /><em>mi lugar favorito.</em></h1>
+        <p class="hero-message">Parece que fue ayer cuando empezó todo, y ya has llenado mis días de risas, calma y momentos que quiero guardar para siempre.</p>
+        <a class="surprise-button" href="#sorpresa">Descubre nuestra sorpresa <span aria-hidden="true">↓</span></a>
+        <p class="hero-signature">Con mucho cariño, <span>tu amor</span></p>
+      </section>
+
+      <section class="section gallery-section" id="sorpresa" aria-labelledby="gallery-title">
+        <div class="section-heading">
+          <p class="eyebrow">Nuestro pequeño álbum</p>
+          <h2 id="gallery-title">Momentos que se quedan <em>conmigo</em></h2>
+          <p>Sí gordita, ya puedes añadir también fotos aquí aparte de en tu móvil.</p>
+        </div>
+        <div class="upload-card">
+          <input id="photo-upload" type="file" accept="image/*" multiple class="visually-hidden" />
+          <label class="upload-button" for="photo-upload"><span aria-hidden="true">♡</span> Añadir nuestras fotos</label>
+          <p id="upload-status" class="upload-status">Puedes seleccionar varias imágenes a la vez.</p>
+        </div>
+        <div id="photo-gallery" class="photo-gallery" aria-live="polite">
+          <div class="photo-placeholder placeholder-one"><span>Un recuerdo<br />bonito</span></div>
+          <div class="photo-placeholder placeholder-two"><span>Una foto<br />juntos</span></div>
+          <div class="photo-placeholder placeholder-three"><span>Otro instante<br />nuestro</span></div>
+        </div>
+      </section>
+
+      <section class="section love-section" aria-labelledby="love-title">
+        <div class="section-heading centered">
+          <p class="eyebrow">Pequeñas verdades</p>
+          <h2 id="love-title">Todo lo que me haces <em>sentir</em></h2>
+        </div>
+        <!-- PERSONALIZA: edita las frases del array loveNotes en app.js. Para añadir más, copia una línea. -->
+        <div id="love-notes" class="love-notes"></div>
+      </section>
+
+      <section class="section memories-section" aria-labelledby="memories-title">
+        <div class="section-heading">
+          <p class="eyebrow">Nuestro primer capítulo</p>
+          <h2 id="memories-title">Recuerdos para volver a <em>sonreír</em></h2>
+        </div>
+        <!-- PERSONALIZA: edita los recuerdos del array memories en app.js. -->
+        <ol id="memories" class="memories-list"></ol>
+      </section>
+
+      <section class="closing" aria-labelledby="closing-title">
+        <span class="closing-heart" aria-hidden="true">♥</span>
+        <p class="eyebrow">Y esto es solo el comienzo</p>
+        <!-- PERSONALIZA: escribe aquí tu dedicatoria final. -->
+        <h2 id="closing-title">Gracias por hacer que ame <em>tu sonrisa.</em></h2>
+        <p>Por las conversaciones sin prisa, por las tonterías que solo entendemos nosotros y por cada instante a tu lado. Este primer mes ha sido precioso; ojalá sea el primero de muchísimos más.</p>
+        <p class="closing-signature">Te quiero, hoy y siempre. <span>♡</span></p>
+      </section>
+    </main>
+    <script src="app.js"></script>
+  </body>
+</html>
