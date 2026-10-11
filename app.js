@@ -163,7 +163,7 @@ loginButton.addEventListener("click", async () => {
     email,
     options: { emailRedirectTo: `${window.location.origin}${window.location.pathname}` },
   });
-  status.textContent = error ? "No se pudo enviar el enlace. Revisa la configuración de Supabase." : "Revisa tu correo y abre el enlace para poder subir fotos.";
+  status.textContent = error ? `No se pudo enviar el enlace: ${error.message}` : "Revisa tu correo y abre el enlace para poder subir fotos.";
 });
 
 input.addEventListener("change", async (event) => {
