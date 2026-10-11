@@ -1,3 +1,8 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { photoBucket, supabasePublishableKey, supabaseUrl } from "./supabase-config.js";
+
+const supabase = createClient(supabaseUrl, supabasePublishableKey);
+
 // PERSONALIZA AQUÍ: cambia las frases o añade una nueva línea entre las llaves.
 const loveNotes = [
   "Solo con verte haces que me salga una sonrisa.",
@@ -41,21 +46,9 @@ memories.forEach((memory, index) => {
 const input = document.querySelector("#photo-upload");
 const gallery = document.querySelector("#photo-gallery");
 const status = document.querySelector("#upload-status");
-const photoStorageKey = "gordita-saved-photos";
-let savedPhotos = loadSavedPhotos();
-
-function loadSavedPhotos() {
-  try {
-    const photos = JSON.parse(localStorage.getItem(photoStorageKey) || "[]");
-    return Array.isArray(photos) ? photos : [];
-  } catch {
-    return [];
-  }
-}
-
-function savePhotos() {
-  localStorage.setItem(photoStorageKey, JSON.stringify(savedPhotos));
-}
+const loginButton = document.querySelector("#login-button");
+let sharedPhotos = [];
+let activeSession = null;
 
 function renderPlaceholders() {
   ["Un recuerdo<br />bonito", "Una foto<br />juntos", "Otro instante<br />nuestro"].forEach((text, index) => {
@@ -66,10 +59,10 @@ function renderPlaceholders() {
   });
 }
 
-function openPhoto(photo) {
+function openPhoto(photoUrl) {
   const lightbox = document.createElement("div");
   lightbox.className = "photo-lightbox";
-  lightbox.innerHTML = `<button type="button" class="close-lightbox" aria-label="Cerrar foto">×</button><img src="${photo}" alt="Una foto de nuestros recuerdos" />`;
+  lightbox.innerHTML = `<button type="button" class="close-lightbox" aria-label="Cerrar foto">×</button><img src="${photoUrl}" alt="Una foto de nuestros recuerdos" />`;
   const close = () => lightbox.remove();
   lightbox.addEventListener("click", (event) => {
     if (event.target === lightbox) close();
@@ -80,31 +73,35 @@ function openPhoto(photo) {
 
 function renderGallery() {
   gallery.replaceChildren();
-  if (!savedPhotos.length) {
+  if (!sharedPhotos.length) {
     renderPlaceholders();
     return;
   }
 
-  savedPhotos.forEach((photo, index) => {
+  sharedPhotos.forEach((photo) => {
     const card = document.createElement("figure");
     card.className = "photo-card";
     card.tabIndex = 0;
     card.setAttribute("role", "button");
     card.setAttribute("aria-label", "Ver esta foto en grande");
-    card.innerHTML = `<img src="${photo}" alt="Una foto de nuestros recuerdos" /><button class="remove-photo" type="button" aria-label="Quitar esta foto">×</button>`;
-    card.addEventListener("click", () => openPhoto(photo));
+    card.innerHTML = `<img src="${photo.url}" alt="Una foto de nuestros recuerdos" />${activeSession ? '<button class="remove-photo" type="button" aria-label="Quitar esta foto">×</button>' : ""}`;
+    card.addEventListener("click", () => openPhoto(photo.url));
     card.addEventListener("keydown", (event) => {
       if (event.key === "Enter" || event.key === " ") {
         event.preventDefault();
-        openPhoto(photo);
+        openPhoto(photo.url);
       }
     });
-    card.querySelector(".remove-photo").addEventListener("click", (event) => {
+    card.querySelector(".remove-photo")?.addEventListener("click", async (event) => {
       event.stopPropagation();
-      savedPhotos.splice(index, 1);
-      savePhotos();
-      renderGallery();
-      status.textContent = savedPhotos.length ? "Foto eliminada." : "No quedan fotos. Puedes elegir otras cuando quieras.";
+      const { error: storageError } = await supabase.storage.from(photoBucket).remove([photo.path]);
+      const { error: databaseError } = await supabase.from("gallery_photos").delete().eq("path", photo.path);
+      if (storageError || databaseError) {
+        status.textContent = "No se pudo eliminar esta foto.";
+        return;
+      }
+      status.textContent = "Foto eliminada para todos los dispositivos.";
+      loadSharedPhotos();
     });
     gallery.append(card);
   });
@@ -132,27 +129,74 @@ function compressPhoto(file) {
   });
 }
 
+async function loadSharedPhotos() {
+  const { data, error } = await supabase.from("gallery_photos").select("path").order("created_at", { ascending: true });
+  if (error) {
+    status.textContent = "No se pudieron cargar las fotos compartidas todavía.";
+    return;
+  }
+  sharedPhotos = data.map((photo) => ({
+    path: photo.path,
+    url: supabase.storage.from(photoBucket).getPublicUrl(photo.path).data.publicUrl,
+  }));
+  renderGallery();
+  if (sharedPhotos.length) status.textContent = `${sharedPhotos.length} ${sharedPhotos.length === 1 ? "foto compartida" : "fotos compartidas"} en vuestro álbum.`;
+}
+
+async function updateSession() {
+  const { data } = await supabase.auth.getSession();
+  activeSession = data.session;
+  loginButton.textContent = activeSession ? "Cerrar sesión" : "Iniciar sesión para subir";
+  renderGallery();
+}
+
+loginButton.addEventListener("click", async () => {
+  if (activeSession) {
+    await supabase.auth.signOut();
+    status.textContent = "Sesión cerrada.";
+    updateSession();
+    return;
+  }
+  const email = window.prompt("Escribe tu correo. Te enviaremos un enlace para iniciar sesión y poder añadir fotos.");
+  if (!email) return;
+  const { error } = await supabase.auth.signInWithOtp({
+    email,
+    options: { emailRedirectTo: window.location.origin },
+  });
+  status.textContent = error ? "No se pudo enviar el enlace. Revisa la configuración de Supabase." : "Revisa tu correo y abre el enlace para poder subir fotos.";
+});
+
 input.addEventListener("change", async (event) => {
   const files = [...event.target.files].filter((file) => file.type.startsWith("image/"));
   if (!files.length) return;
+  if (!activeSession) {
+    status.textContent = "Inicia sesión con el botón de al lado antes de añadir fotos compartidas.";
+    input.value = "";
+    return;
+  }
 
-  status.textContent = "Guardando fotos en este navegador…";
+  status.textContent = "Subiendo fotos para que podáis verlas desde cualquier sitio…";
   try {
     const photos = await Promise.all(files.map(compressPhoto));
-    const previousPhotos = savedPhotos;
-    savedPhotos = [...savedPhotos, ...photos];
-    try {
-      savePhotos();
-    } catch {
-      savedPhotos = previousPhotos;
-      throw new Error("No queda espacio en este navegador para guardar más fotos.");
+    for (const photo of photos) {
+      const filePath = `${crypto.randomUUID()}.jpg`;
+      const imageBlob = await (await fetch(photo)).blob();
+      const { error: storageError } = await supabase.storage.from(photoBucket).upload(filePath, imageBlob, { contentType: "image/jpeg" });
+      if (storageError) throw storageError;
+      const { error: databaseError } = await supabase.from("gallery_photos").insert({ path: filePath });
+      if (databaseError) {
+        await supabase.storage.from(photoBucket).remove([filePath]);
+        throw databaseError;
+      }
     }
-    renderGallery();
-    status.textContent = `${photos.length} ${photos.length === 1 ? "foto guardada" : "fotos guardadas"}. Seguirán aquí al actualizar.`;
+    await loadSharedPhotos();
+    status.textContent = `${photos.length} ${photos.length === 1 ? "foto subida" : "fotos subidas"}. Ya se ven en todos los dispositivos.`;
   } catch (error) {
-    status.textContent = error.message || "No se pudieron guardar las fotos.";
+    status.textContent = error.message || "No se pudieron subir las fotos.";
   }
   input.value = "";
 });
 
 renderGallery();
+updateSession();
+loadSharedPhotos();
