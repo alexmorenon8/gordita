@@ -46,7 +46,6 @@ memories.forEach((memory, index) => {
 const input = document.querySelector("#photo-upload");
 const gallery = document.querySelector("#photo-gallery");
 const status = document.querySelector("#upload-status");
-const loginButton = document.querySelector("#login-button");
 let sharedPhotos = [];
 let activeSession = null;
 
@@ -146,31 +145,22 @@ async function loadSharedPhotos() {
 async function updateSession() {
   const { data } = await supabase.auth.getSession();
   activeSession = data.session;
-  loginButton.textContent = activeSession ? "Cerrar sesión" : "Iniciar sesión para subir";
+  if (!activeSession) {
+    const { data: anonymousData, error } = await supabase.auth.signInAnonymously();
+    if (error) {
+      status.textContent = "Activa los inicios de sesión anónimos en Supabase para poder añadir fotos sin email.";
+      return;
+    }
+    activeSession = anonymousData.session;
+  }
   renderGallery();
 }
-
-loginButton.addEventListener("click", async () => {
-  if (activeSession) {
-    await supabase.auth.signOut();
-    status.textContent = "Sesión cerrada.";
-    updateSession();
-    return;
-  }
-  const email = window.prompt("Escribe tu correo. Te enviaremos un enlace para iniciar sesión y poder añadir fotos.");
-  if (!email) return;
-  const { error } = await supabase.auth.signInWithOtp({
-    email,
-    options: { emailRedirectTo: `${window.location.origin}${window.location.pathname}` },
-  });
-  status.textContent = error ? `No se pudo enviar el enlace: ${error.message}` : "Revisa tu correo y abre el enlace para poder subir fotos.";
-});
 
 input.addEventListener("change", async (event) => {
   const files = [...event.target.files].filter((file) => file.type.startsWith("image/"));
   if (!files.length) return;
   if (!activeSession) {
-    status.textContent = "Inicia sesión con el botón de al lado antes de añadir fotos compartidas.";
+    status.textContent = "Preparando el álbum compartido. Prueba de nuevo en un momento.";
     input.value = "";
     return;
   }
