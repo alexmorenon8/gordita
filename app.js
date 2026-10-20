@@ -46,6 +46,7 @@ memories.forEach((memory, index) => {
 const input = document.querySelector("#photo-upload");
 const uploadButton = document.querySelector("#upload-button");
 const googleButton = document.querySelector("#google-login-button");
+const logoutButton = document.querySelector("#logout-button");
 const gallery = document.querySelector("#photo-gallery");
 const status = document.querySelector("#upload-status");
 let sharedPhotos = [];
@@ -211,6 +212,14 @@ googleButton.addEventListener("click", async () => {
     googleButton.disabled = false;
     status.textContent = error.message || "No se pudo iniciar sesión con Google.";
   }
+});
+
+logoutButton.addEventListener("click", async () => {
+  logoutButton.disabled = true;
+  logoutButton.textContent = "Cerrando sesión…";
+  await supabase.auth.signOut();
+  // Cloudflare borra la cookie de Access y muestra el inicio protegido otra vez.
+  window.location.assign("https://gordita.pages.dev/cdn-cgi/access/logout");
 });
 
 input.addEventListener("change", async (event) => {
