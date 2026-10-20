@@ -60,7 +60,8 @@ let hasAlbumAccess = false;
 function updateTogetherCounter() {
   const elapsed = Math.max(0, Date.now() - togetherSince.getTime());
   const totalMinutes = Math.floor(elapsed / 60000);
-  counterDays.textContent = Math.floor(totalMinutes / 1440);
+  // Cuenta el día en el que empezó todo como el día 1.
+  counterDays.textContent = Math.floor(totalMinutes / 1440) + 1;
 }
 
 function renderPlaceholders() {
