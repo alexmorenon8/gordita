@@ -53,8 +53,6 @@ const logoutButton = document.querySelector("#logout-button");
 const gallery = document.querySelector("#photo-gallery");
 const status = document.querySelector("#upload-status");
 const counterDays = document.querySelector("#counter-days");
-const counterHours = document.querySelector("#counter-hours");
-const counterMinutes = document.querySelector("#counter-minutes");
 let sharedPhotos = [];
 let activeSession = null;
 let hasAlbumAccess = false;
@@ -63,8 +61,6 @@ function updateTogetherCounter() {
   const elapsed = Math.max(0, Date.now() - togetherSince.getTime());
   const totalMinutes = Math.floor(elapsed / 60000);
   counterDays.textContent = Math.floor(totalMinutes / 1440);
-  counterHours.textContent = Math.floor((totalMinutes % 1440) / 60);
-  counterMinutes.textContent = totalMinutes % 60;
 }
 
 function renderPlaceholders() {
