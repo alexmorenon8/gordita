@@ -44,10 +44,13 @@ memories.forEach((memory, index) => {
 });
 
 const input = document.querySelector("#photo-upload");
+const uploadButton = document.querySelector("#upload-button");
+const googleButton = document.querySelector("#google-login-button");
 const gallery = document.querySelector("#photo-gallery");
 const status = document.querySelector("#upload-status");
 let sharedPhotos = [];
 let activeSession = null;
+let hasAlbumAccess = false;
 
 function renderPlaceholders() {
   ["Un recuerdo<br />bonito", "Una foto<br />juntos", "Otro instante<br />nuestro"].forEach((text, index) => {
@@ -56,6 +59,13 @@ function renderPlaceholders() {
     placeholder.innerHTML = `<span>${text}</span>`;
     gallery.append(placeholder);
   });
+}
+
+function updateAccessUi() {
+  const signedIn = Boolean(activeSession && hasAlbumAccess);
+  input.disabled = !signedIn;
+  uploadButton.classList.toggle("is-disabled", !signedIn);
+  googleButton.textContent = signedIn ? "Cerrar sesión" : "Entrar con Google";
 }
 
 function openPhoto(photoUrl) {
@@ -72,18 +82,17 @@ function openPhoto(photoUrl) {
 
 function renderGallery() {
   gallery.replaceChildren();
-  if (!sharedPhotos.length) {
+  if (!hasAlbumAccess || !sharedPhotos.length) {
     renderPlaceholders();
     return;
   }
-
   sharedPhotos.forEach((photo) => {
     const card = document.createElement("figure");
     card.className = "photo-card";
     card.tabIndex = 0;
     card.setAttribute("role", "button");
     card.setAttribute("aria-label", "Ver esta foto en grande");
-    card.innerHTML = `<img src="${photo.url}" alt="Una foto de nuestros recuerdos" />${activeSession ? '<button class="remove-photo" type="button" aria-label="Quitar esta foto">×</button>' : ""}`;
+    card.innerHTML = `<img src="${photo.url}" alt="Una foto de nuestros recuerdos" /><button class="remove-photo" type="button" aria-label="Quitar esta foto">×</button>`;
     card.addEventListener("click", () => openPhoto(photo.url));
     card.addEventListener("keydown", (event) => {
       if (event.key === "Enter" || event.key === " ") {
@@ -91,7 +100,7 @@ function renderGallery() {
         openPhoto(photo.url);
       }
     });
-    card.querySelector(".remove-photo")?.addEventListener("click", async (event) => {
+    card.querySelector(".remove-photo").addEventListener("click", async (event) => {
       event.stopPropagation();
       const { error: storageError } = await supabase.storage.from(photoBucket).remove([photo.path]);
       const { error: databaseError } = await supabase.from("gallery_photos").delete().eq("path", photo.path);
@@ -99,8 +108,8 @@ function renderGallery() {
         status.textContent = "No se pudo eliminar esta foto.";
         return;
       }
-      status.textContent = "Foto eliminada para todos los dispositivos.";
-      loadSharedPhotos();
+      status.textContent = "Foto eliminada para los dos.";
+      await loadSharedPhotos();
     });
     gallery.append(card);
   });
@@ -129,42 +138,84 @@ function compressPhoto(file) {
 }
 
 async function loadSharedPhotos() {
-  const { data, error } = await supabase.from("gallery_photos").select("path").order("created_at", { ascending: true });
-  if (error) {
-    status.textContent = "No se pudieron cargar las fotos compartidas todavía.";
+  if (!hasAlbumAccess) {
+    sharedPhotos = [];
+    renderGallery();
     return;
   }
-  sharedPhotos = data.map((photo) => ({
-    path: photo.path,
-    url: supabase.storage.from(photoBucket).getPublicUrl(photo.path).data.publicUrl,
+  const { data, error } = await supabase.from("gallery_photos").select("path").order("created_at", { ascending: true });
+  if (error) {
+    status.textContent = "No se pudieron cargar las fotos compartidas.";
+    return;
+  }
+  const photosWithUrls = await Promise.all(data.map(async (photo) => {
+    const { data: signedUrl, error: urlError } = await supabase.storage.from(photoBucket).createSignedUrl(photo.path, 3600);
+    return urlError ? null : { path: photo.path, url: signedUrl.signedUrl };
   }));
+  sharedPhotos = photosWithUrls.filter(Boolean);
   renderGallery();
-  if (sharedPhotos.length) status.textContent = `${sharedPhotos.length} ${sharedPhotos.length === 1 ? "foto compartida" : "fotos compartidas"} en vuestro álbum.`;
+  status.textContent = sharedPhotos.length
+    ? `${sharedPhotos.length} ${sharedPhotos.length === 1 ? "foto compartida" : "fotos compartidas"} en vuestro álbum.`
+    : "Todavía no hay fotos. Podéis añadir las primeras.";
+}
+
+async function checkAlbumAccess() {
+  const { data, error } = await supabase.rpc("is_allowed_user");
+  if (error) throw error;
+  return data === true;
 }
 
 async function updateSession() {
   const { data } = await supabase.auth.getSession();
   activeSession = data.session;
+  hasAlbumAccess = false;
   if (!activeSession) {
-    const { data: anonymousData, error } = await supabase.auth.signInAnonymously();
-    if (error) {
-      status.textContent = "Activa los inicios de sesión anónimos en Supabase para poder añadir fotos sin email.";
-      return;
-    }
-    activeSession = anonymousData.session;
+    updateAccessUi();
+    renderGallery();
+    status.textContent = "Inicia sesión con una de las dos cuentas autorizadas para ver el álbum.";
+    return;
   }
-  renderGallery();
+  try {
+    hasAlbumAccess = await checkAlbumAccess();
+  } catch (error) {
+    updateAccessUi();
+    renderGallery();
+    status.textContent = "Falta terminar la protección en Supabase. Ejecuta el bloque SQL indicado.";
+    return;
+  }
+  if (!hasAlbumAccess) {
+    await supabase.auth.signOut();
+    activeSession = null;
+    updateAccessUi();
+    renderGallery();
+    status.textContent = "Esta cuenta de Google no está autorizada para este álbum.";
+    return;
+  }
+  updateAccessUi();
+  await loadSharedPhotos();
 }
+
+googleButton.addEventListener("click", async () => {
+  if (activeSession && hasAlbumAccess) {
+    await supabase.auth.signOut();
+    await updateSession();
+    return;
+  }
+  googleButton.disabled = true;
+  status.textContent = "Abriendo Google para entrar…";
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: { redirectTo: `${window.location.origin}${window.location.pathname}` },
+  });
+  if (error) {
+    googleButton.disabled = false;
+    status.textContent = error.message || "No se pudo iniciar sesión con Google.";
+  }
+});
 
 input.addEventListener("change", async (event) => {
   const files = [...event.target.files].filter((file) => file.type.startsWith("image/"));
-  if (!files.length) return;
-  if (!activeSession) {
-    status.textContent = "Preparando el álbum compartido. Prueba de nuevo en un momento.";
-    input.value = "";
-    return;
-  }
-
+  if (!files.length || !hasAlbumAccess) return;
   status.textContent = "Subiendo fotos para que podáis verlas desde cualquier sitio…";
   try {
     const photos = await Promise.all(files.map(compressPhoto));
@@ -180,13 +231,14 @@ input.addEventListener("change", async (event) => {
       }
     }
     await loadSharedPhotos();
-    status.textContent = `${photos.length} ${photos.length === 1 ? "foto subida" : "fotos subidas"}. Ya se ven en todos los dispositivos.`;
+    status.textContent = `${photos.length} ${photos.length === 1 ? "foto subida" : "fotos subidas"}. Ya se ven para los dos.`;
   } catch (error) {
     status.textContent = error.message || "No se pudieron subir las fotos.";
   }
   input.value = "";
 });
 
+supabase.auth.onAuthStateChange(() => window.setTimeout(updateSession, 0));
+
 renderGallery();
 updateSession();
-loadSharedPhotos();

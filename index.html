@@ -33,9 +33,10 @@
           <p>Sí gordita, ya puedes añadir también fotos aquí aparte de en tu móvil.</p>
         </div>
         <div class="upload-card">
-          <input id="photo-upload" type="file" accept="image/*" multiple class="visually-hidden" />
-          <label class="upload-button" for="photo-upload"><span aria-hidden="true">♡</span> Añadir nuestras fotos</label>
-          <p id="upload-status" class="upload-status">Puedes seleccionar varias imágenes a la vez. Se guardarán para los dos.</p>
+          <input id="photo-upload" type="file" accept="image/*" multiple class="visually-hidden" disabled />
+          <label id="upload-button" class="upload-button is-disabled" for="photo-upload"><span aria-hidden="true">♡</span> Añadir nuestras fotos</label>
+          <button id="google-login-button" class="login-button" type="button">Entrar con Google</button>
+          <p id="upload-status" class="upload-status">Inicia sesión con una de las dos cuentas autorizadas para ver y añadir las fotos.</p>
         </div>
         <div id="photo-gallery" class="photo-gallery" aria-live="polite">
           <div class="photo-placeholder placeholder-one"><span>Un recuerdo<br />bonito</span></div>
@@ -71,6 +72,6 @@
         <p class="closing-signature">Te quiero, hoy y siempre. <span>♡</span></p>
       </section>
     </main>
-    <script type="module" src="app.js?v=4"></script>
+    <script type="module" src="app.js?v=5"></script>
   </body>
 </html>
