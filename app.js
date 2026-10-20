@@ -3,6 +3,9 @@ import { photoBucket, supabasePublishableKey, supabaseUrl } from "./supabase-con
 
 const supabase = createClient(supabaseUrl, supabasePublishableKey);
 
+// PERSONALIZA AQUÍ: pon la fecha y hora exactas en la que empezó vuestra historia.
+const togetherSince = new Date("2026-09-12T00:00:00+02:00");
+
 // PERSONALIZA AQUÍ: cambia las frases o añade una nueva línea entre las llaves.
 const loveNotes = [
   "Solo con verte haces que me salga una sonrisa.",
@@ -49,9 +52,20 @@ const googleButton = document.querySelector("#google-login-button");
 const logoutButton = document.querySelector("#logout-button");
 const gallery = document.querySelector("#photo-gallery");
 const status = document.querySelector("#upload-status");
+const counterDays = document.querySelector("#counter-days");
+const counterHours = document.querySelector("#counter-hours");
+const counterMinutes = document.querySelector("#counter-minutes");
 let sharedPhotos = [];
 let activeSession = null;
 let hasAlbumAccess = false;
+
+function updateTogetherCounter() {
+  const elapsed = Math.max(0, Date.now() - togetherSince.getTime());
+  const totalMinutes = Math.floor(elapsed / 60000);
+  counterDays.textContent = Math.floor(totalMinutes / 1440);
+  counterHours.textContent = Math.floor((totalMinutes % 1440) / 60);
+  counterMinutes.textContent = totalMinutes % 60;
+}
 
 function renderPlaceholders() {
   ["Un recuerdo<br />bonito", "Una foto<br />juntos", "Otro instante<br />nuestro"].forEach((text, index) => {
@@ -250,4 +264,6 @@ input.addEventListener("change", async (event) => {
 supabase.auth.onAuthStateChange(() => window.setTimeout(updateSession, 0));
 
 renderGallery();
+updateTogetherCounter();
+window.setInterval(updateTogetherCounter, 30000);
 updateSession();
